@@ -1,0 +1,3142 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>AI Phone Controller</title>
+
+    <meta name="description" content="Real-time AI object tracking and streaming with TensorFlow.js" />
+
+
+
+    <!-- Google Fonts -->
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet" />
+
+
+
+    <!-- Load TensorFlow.js and COCO-SSD model -->
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+
+
+
+    <style>
+        * {
+
+            margin: 0;
+
+            padding: 0;
+
+            box-sizing: border-box;
+
+        }
+
+
+
+        body {
+
+            min-height: 100vh;
+
+            background: linear-gradient(135deg,
+
+                    #0f0f1a 0%,
+
+                    #1a1a2e 50%,
+
+                    #16213e 100%);
+
+            color: #ffffff;
+
+            font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+
+            display: flex;
+
+            flex-direction: column;
+
+            align-items: center;
+
+            padding: 20px;
+
+            overflow-x: hidden;
+
+        }
+
+
+
+        /* Animated background orbs */
+
+        body::before,
+
+        body::after {
+
+            content: "";
+
+            position: fixed;
+
+            border-radius: 50%;
+
+            filter: blur(80px);
+
+            opacity: 0.4;
+
+            z-index: -1;
+
+            animation: float 8s ease-in-out infinite;
+
+        }
+
+
+
+        body::before {
+
+            width: 300px;
+
+            height: 300px;
+
+            background: linear-gradient(135deg, #667eea, #764ba2);
+
+            top: -100px;
+
+            right: -100px;
+
+        }
+
+
+
+        body::after {
+
+            width: 250px;
+
+            height: 250px;
+
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+
+            bottom: -80px;
+
+            left: -80px;
+
+            animation-delay: -4s;
+
+        }
+
+
+
+        @keyframes float {
+
+            0%,
+
+            100% {
+
+                transform: translate(0, 0) scale(1);
+
+            }
+
+
+
+            50% {
+
+                transform: translate(30px, 20px) scale(1.1);
+
+            }
+
+        }
+
+
+
+        /* New Layout Structure */
+
+        .main-wrapper {
+
+            display: flex;
+
+            gap: 24px;
+
+            width: 100%;
+
+            max-width: 1100px;
+
+            /* Increased max-width */
+
+            align-items: flex-start;
+
+        }
+
+
+
+        .container {
+
+            width: 100%;
+
+            /* Reset max-width on container */
+
+            max-width: none;
+
+        }
+
+
+
+        .video-section {
+
+            flex: 2;
+
+            width: 100%;
+
+            display: flex;
+
+            flex-direction: column;
+
+            gap: 24px;
+
+        }
+
+
+
+        .sidebar {
+
+            flex: 1;
+
+            min-width: 350px;
+
+            background: rgba(255, 255, 255, 0.05);
+
+            backdrop-filter: blur(20px);
+
+            border-radius: 20px;
+
+            border: 1px solid rgba(255, 255, 255, 0.1);
+
+            height: auto;
+
+            min-height: 600px;
+
+            display: flex;
+
+            flex-direction: column;
+
+            overflow: hidden;
+
+        }
+
+
+
+        .whiteboard-container {
+
+            width: 100%;
+
+            padding: 20px;
+
+            background: rgba(0, 0, 0, 0.2);
+
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+            display: flex;
+
+            flex-direction: column;
+
+            align-items: center;
+
+            gap: 10px;
+
+        }
+
+
+
+        #whiteboard {
+
+            background: #ffffff;
+
+            border-radius: 8px;
+
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+
+            cursor: crosshair;
+
+            width: 100%;
+
+            aspect-ratio: 4/3;
+
+            transform: scaleX(-1);
+            /* Add this */
+
+
+
+            /* Match video aspect ratio */
+
+        }
+
+
+
+        .wb-label {
+
+            font-size: 0.8rem;
+
+            color: rgba(255, 255, 255, 0.6);
+
+            text-transform: uppercase;
+
+            letter-spacing: 1px;
+
+        }
+
+
+
+        .sidebar-header {
+
+            padding: 20px;
+
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+            font-weight: 600;
+
+            display: flex;
+
+            justify-content: space-between;
+
+            align-items: center;
+
+        }
+
+
+
+        .sidebar-content {
+
+            flex: 1;
+
+            overflow-y: auto;
+
+            padding: 10px;
+
+            max-height: 300px;
+
+            /* Limit log height */
+
+        }
+
+
+
+        .log-item {
+
+            font-family: "Courier New", monospace;
+
+            font-size: 0.8rem;
+
+            padding: 8px 12px;
+
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+
+            color: rgba(255, 255, 255, 0.7);
+
+            display: flex;
+
+            justify-content: space-between;
+
+        }
+
+
+
+        .log-item:hover {
+
+            background: rgba(255, 255, 255, 0.05);
+
+        }
+
+
+
+        .log-time {
+
+            color: #667eea;
+
+        }
+
+
+
+        /* Scrollbar styling */
+
+        .sidebar-content::-webkit-scrollbar {
+
+            width: 6px;
+
+        }
+
+
+
+        .sidebar-content::-webkit-scrollbar-track {
+
+            background: rgba(0, 0, 0, 0.1);
+
+        }
+
+
+
+        .sidebar-content::-webkit-scrollbar-thumb {
+
+            background: rgba(255, 255, 255, 0.2);
+
+            border-radius: 3px;
+
+        }
+
+
+
+        /* Responsive */
+
+        @media (max-width: 850px) {
+
+            .main-wrapper {
+
+                flex-direction: column;
+
+            }
+
+
+
+            .sidebar {
+
+                width: 100%;
+
+                height: 300px;
+
+            }
+
+        }
+
+
+
+        /* Header */
+
+        .header {
+
+            text-align: center;
+
+            margin-bottom: 8px;
+
+        }
+
+
+
+        .header h1 {
+
+            font-size: 1.75rem;
+
+            font-weight: 700;
+
+            background: linear-gradient(135deg,
+
+                    #667eea 0%,
+
+                    #764ba2 50%,
+
+                    #f093fb 100%);
+
+            -webkit-background-clip: text;
+
+            -webkit-text-fill-color: transparent;
+
+            background-clip: text;
+
+            letter-spacing: -0.5px;
+
+            margin-bottom: 8px;
+
+        }
+
+
+
+        .header p {
+
+            font-size: 0.875rem;
+
+            color: rgba(255, 255, 255, 0.6);
+
+            font-weight: 400;
+
+        }
+
+
+
+        /* Video Container */
+
+        .video-container {
+
+            position: relative;
+
+            width: 100%;
+
+            background: rgba(255, 255, 255, 0.05);
+
+            border-radius: 20px;
+
+            padding: 12px;
+
+            backdrop-filter: blur(20px);
+
+            -webkit-backdrop-filter: blur(20px);
+
+            border: 1px solid rgba(255, 255, 255, 0.1);
+
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3),
+
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+
+        }
+
+
+
+        .video-wrapper {
+
+            position: relative;
+
+            width: 100%;
+
+            border-radius: 12px;
+
+            overflow: hidden;
+
+            background: #000;
+
+            aspect-ratio: 4/3;
+
+            transform: scaleX(-1);
+
+        }
+
+
+
+        #video {
+
+            width: 100%;
+
+            height: 100%;
+
+            object-fit: cover;
+
+            display: block;
+
+        }
+
+
+
+        #canvas {
+
+            position: absolute;
+
+            top: 0;
+
+            left: 0;
+
+            width: 100%;
+
+            height: 100%;
+
+            pointer-events: none;
+
+        }
+
+
+
+        /* Live indicator */
+
+        .live-indicator {
+
+            position: absolute;
+
+            top: 16px;
+
+            left: 16px;
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 8px;
+            transform: scaleX(-1);
+
+            background: rgba(0, 0, 0, 0.6);
+
+            backdrop-filter: blur(10px);
+
+            padding: 6px 12px;
+
+            border-radius: 20px;
+
+            font-size: 0.75rem;
+
+            font-weight: 600;
+
+            text-transform: uppercase;
+
+            letter-spacing: 0.5px;
+
+            opacity: 0;
+
+            transition: opacity 0.3s ease;
+
+        }
+
+
+
+        .live-indicator.active {
+
+            opacity: 1;
+
+        }
+
+
+
+        .live-dot {
+
+            width: 8px;
+
+            height: 8px;
+
+            background: #ef4444;
+
+            border-radius: 50%;
+
+            animation: pulse 1.5s ease-in-out infinite;
+
+        }
+
+
+
+        @keyframes pulse {
+
+            0%,
+
+            100% {
+
+                opacity: 1;
+
+                transform: scale(1);
+
+            }
+
+
+
+            50% {
+
+                opacity: 0.5;
+
+                transform: scale(1.2);
+
+            }
+
+        }
+
+
+
+        /* Status Card */
+
+        .status-card {
+
+            width: 100%;
+
+            background: rgba(255, 255, 255, 0.05);
+
+            border-radius: 16px;
+
+            padding: 20px;
+
+            backdrop-filter: blur(20px);
+
+            -webkit-backdrop-filter: blur(20px);
+
+            border: 1px solid rgba(255, 255, 255, 0.1);
+
+        }
+
+
+
+        .status-header {
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 12px;
+
+            margin-bottom: 12px;
+
+        }
+
+
+
+        .status-icon {
+
+            width: 40px;
+
+            height: 40px;
+
+            background: linear-gradient(135deg, #667eea, #764ba2);
+
+            border-radius: 12px;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            font-size: 1.25rem;
+
+        }
+
+
+
+        .status-title {
+
+            font-size: 0.75rem;
+
+            text-transform: uppercase;
+
+            letter-spacing: 1px;
+
+            color: rgba(255, 255, 255, 0.5);
+
+            font-weight: 600;
+
+        }
+
+
+
+        #status {
+
+            font-size: 1rem;
+
+            font-weight: 500;
+
+            color: rgba(255, 255, 255, 0.9);
+
+            line-height: 1.5;
+
+            transition: all 0.3s ease;
+
+        }
+
+
+
+        /* Start Button */
+
+        #startBtn {
+
+            width: 100%;
+
+            padding: 18px 32px;
+
+            font-size: 1rem;
+
+            font-weight: 600;
+
+            font-family: inherit;
+
+            color: #ffffff;
+
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+            border: none;
+
+            border-radius: 14px;
+
+            cursor: pointer;
+
+            position: relative;
+
+            overflow: hidden;
+
+            transition: all 0.3s ease;
+
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4),
+
+                0 1px 3px rgba(0, 0, 0, 0.2);
+
+            letter-spacing: 0.5px;
+
+        }
+
+
+
+        #startBtn::before {
+
+            content: "";
+
+            position: absolute;
+
+            top: 0;
+
+            left: -100%;
+
+            width: 100%;
+
+            height: 100%;
+
+            background: linear-gradient(90deg,
+
+                    transparent,
+
+                    rgba(255, 255, 255, 0.2),
+
+                    transparent);
+
+            transition: left 0.5s ease;
+
+        }
+
+
+
+        #startBtn:hover {
+
+            transform: translateY(-2px);
+
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5),
+
+                0 4px 10px rgba(0, 0, 0, 0.3);
+
+        }
+
+
+
+        #startBtn:hover::before {
+
+            left: 100%;
+
+        }
+
+
+
+        #startBtn:active {
+
+            transform: translateY(0);
+
+        }
+
+
+
+        #startBtn:disabled {
+
+            opacity: 0.6;
+
+            cursor: not-allowed;
+
+            transform: none;
+
+        }
+
+
+
+        /* Tracking info display */
+
+        .tracking-info {
+
+            display: none;
+
+            width: 100%;
+
+            background: rgba(102, 126, 234, 0.1);
+
+            border: 1px solid rgba(102, 126, 234, 0.3);
+
+            border-radius: 12px;
+
+            padding: 16px;
+
+            text-align: left;
+
+        }
+
+
+
+        .tracking-info.active {
+
+            display: block;
+
+            animation: slideUp 0.3s ease;
+
+        }
+
+
+
+        @keyframes slideUp {
+
+            from {
+
+                opacity: 0;
+
+                transform: translateY(10px);
+
+            }
+
+
+
+            to {
+
+                opacity: 1;
+
+                transform: translateY(0);
+
+            }
+
+        }
+
+
+
+        .tracking-label {
+
+            font-size: 0.875rem;
+
+            color: rgba(255, 255, 255, 0.6);
+
+            margin-bottom: 4px;
+
+        }
+
+
+
+        .tracking-value {
+
+            font-size: 1.125rem;
+
+            font-weight: 600;
+
+            color: #667eea;
+
+        }
+
+
+
+        /* Footer */
+
+        .footer {
+
+            margin-top: auto;
+
+            padding-top: 32px;
+
+            text-align: center;
+
+            font-size: 0.75rem;
+
+            color: rgba(255, 255, 255, 0.4);
+
+        }
+
+
+
+        .footer a {
+
+            color: #667eea;
+
+            text-decoration: none;
+
+            transition: color 0.2s ease;
+
+        }
+
+
+
+        .footer a:hover {
+
+            color: #764ba2;
+
+        }
+
+
+
+        /* Responsive adjustments */
+
+        @media (max-width: 480px) {
+
+            body {
+
+                padding: 16px;
+
+            }
+
+
+
+            .header h1 {
+
+                font-size: 1.5rem;
+
+            }
+
+
+
+            .video-container {
+
+                padding: 8px;
+
+                border-radius: 16px;
+
+            }
+
+
+
+            .video-wrapper {
+
+                border-radius: 10px;
+
+            }
+
+
+
+            #startBtn {
+
+                padding: 16px 24px;
+
+            }
+
+        }
+    </style>
+
+</head>
+
+
+
+<body>
+
+    <div class="main-wrapper">
+
+        <!-- LEFT COLUMN: Video & Controls -->
+
+        <div class="video-section">
+
+            <header class="header">
+
+                <h1>🤖 AI Object Tracker</h1>
+
+                <p>Real-time detection powered by TensorFlow.js</p>
+
+            </header>
+
+
+
+            <div class="video-container">
+
+                <div class="video-wrapper">
+
+                    <video id="video" autoplay playsinline></video>
+
+                    <!-- Layer 1: Bounding Boxes (Only) -->
+
+                    <canvas id="canvas"></canvas>
+
+
+
+                    <div class="live-indicator" id="liveIndicator">
+
+                        <span class="live-dot"></span>
+
+                        <span>LIVE</span>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="status-card">
+
+                <div class="status-header">
+
+                    <div class="status-icon">🎯</div>
+
+                    <div>
+
+                        <div class="status-title">System Status</div>
+
+                    </div>
+
+                </div>
+
+                <div id="status">Loading AI Model...</div>
+
+            </div>
+
+
+
+            <div class="tracking-info" id="trackingInfo">
+
+                <div class="tracking-label">Detected Object</div>
+
+                <div class="tracking-value" id="trackingValue">—</div>
+
+            </div>
+
+
+
+            <button id="startBtn">▶️ START AI & STREAM</button>
+
+        </div>
+
+
+
+        <!-- RIGHT COLUMN: Sidebar & Whiteboard -->
+
+        <div class="sidebar">
+
+            <div class="whiteboard-container">
+
+                <div class="wb-label">✨ Digital Whiteboard</div>
+
+                <canvas id="whiteboard"></canvas>
+
+            </div>
+
+
+
+            <div class="sidebar-header">
+
+                <span>🎮 Control Mode</span>
+
+            </div>
+
+
+
+            <div class="mode-toggle-container" style="
+
+            padding: 15px;
+
+            display: flex;
+
+            gap: 10px;
+
+            justify-content: center;
+
+          ">
+
+                <button id="btnAuto" class="mode-btn active" onclick="switchMode('auto')">
+
+                    🤖 Auto
+
+                </button>
+
+                <button id="btnManual" class="mode-btn" onclick="switchMode('manual')">
+
+                    🕹️ Manual
+
+                </button>
+
+            </div>
+
+
+
+            <!-- D-PAD CONTROLS -->
+
+            <div id="dpadContainer" style="
+
+            padding: 10px;
+
+            display: none;
+
+            flex-direction: column;
+
+            align-items: center;
+
+            gap: 5px;
+
+          ">
+
+                <button class="dpad-btn" onclick="adjustManual(0, -20)">⬆️</button>
+
+                <div style="display: flex; gap: 10px">
+
+                    <button class="dpad-btn" onclick="adjustManual(20, 0)">⬅️</button>
+
+                    <button class="dpad-btn" onclick="adjustManual(0, 0)">⏺️</button>
+
+                    <button class="dpad-btn" onclick="adjustManual(-20, 0)">➡️</button>
+
+                </div>
+
+                <button class="dpad-btn" onclick="adjustManual(0, 20)">⬇️</button>
+
+                <div style="font-size: 0.8rem; opacity: 0.6; margin-top: 10px">
+
+                    Use Arrow Keys to Move
+
+                </div>
+
+            </div>
+
+
+
+            <div class="sidebar-header">
+
+                <span>� Path Recorder</span>
+
+            </div>
+
+            <div class="recorder-controls" style="
+
+            padding: 15px;
+
+            display: flex;
+
+            gap: 10px;
+
+            justify-content: center;
+
+          ">
+
+                <button id="btnRecord" class="mode-btn" onclick="toggleRecord()">
+
+                    🔴 Record
+
+                </button>
+
+                <button id="btnLoop" class="mode-btn" onclick="toggleLoop()">
+
+                    🔁 Loop
+
+                </button>
+
+                <button id="btnSave" class="mode-btn" onclick="savePath()">
+
+                    💾 Save
+
+                </button>
+
+                <button id="btnLoad" class="mode-btn" onclick="loadPath()">
+                    📂 Load
+                </button>
+            </div>
+
+            <div class="sidebar-header">
+                <span>�️ Deviation Monitor</span>
+            </div>
+            <div style="padding: 15px; display: flex; flex-direction: column; gap: 10px;">
+                <button id="btnMonitor" class="mode-btn" onclick="toggleMonitor()">
+                    🛡️ Start Monitoring
+                </button>
+
+                <div
+                    style="display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.8rem; color: rgba(255,255,255,0.6);">
+                    <span>Tolerance:</span>
+                    <input type="range" id="monitorThreshold" min="10" max="200" value="70"
+                        style="flex:1; cursor:pointer" oninput="updateThresholdLabel(this.value)">
+                    <span id="thresholdLabel" style="width:30px; text-align:right">70px</span>
+                </div>
+            </div>
+
+            <div class="sidebar-header">
+                <span>⛔ No-Go Zones</span>
+            </div>
+            <div style="padding: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <button id="btnDrawZone" class="mode-btn" onclick="toggleZoneMode()">
+                    ✏️ Draw Zone
+                </button>
+                <button class="mode-btn" onclick="clearZones()"
+                    style="background: rgba(255, 71, 87, 0.2); border: 1px solid rgba(255, 71, 87, 0.4);">
+                    🗑️ Clear
+                </button>
+                <div style="width: 100%; font-size: 0.75rem; color: rgba(255,255,255,0.5); margin-top:5px">
+                    Click Top-Left, then Bottom-Right on video.
+                </div>
+            </div>
+
+            <div class="sidebar-header">
+
+                <span>📧 Email Alerts</span>
+
+            </div>
+
+            <div style="padding: 15px">
+
+                <!-- Type Selector -->
+                <div style="display: flex; gap: 10px; margin-bottom: 10px; opacity: 0.5; pointer-events: none;">
+                    <button class="mode-btn active" id="btnTypeEmail"
+                        style="font-size: 0.8em; padding: 5px; width:100%">
+                        📧 Email Alerts Only
+                    </button>
+                </div>
+
+
+
+                <input type="text" id="alertTrigger" placeholder="Object (e.g. person)" class="pixel-input" style="
+
+              width: 100%;
+
+              margin-bottom: 10px;
+
+              background: rgba(255, 255, 255, 0.1);
+
+              border: 1px solid rgba(255, 255, 255, 0.2);
+
+              padding: 8px;
+
+              color: white;
+
+              border-radius: 6px;
+
+            " />
+
+
+
+                <input type="text" id="alertDest" placeholder="your@email.com" class="pixel-input" style="
+
+              width: 100%;
+
+              margin-bottom: 10px;
+
+              background: rgba(255, 255, 255, 0.1);
+
+              border: 1px solid rgba(255, 255, 255, 0.2);
+
+              padding: 8px;
+
+              color: white;
+
+              border-radius: 6px;
+
+            " />
+
+
+
+                <button id="btnSetAlert" class="mode-btn" style="width: 100%" onclick="toggleAlert()">
+
+                    🔔 Set Alert
+
+                </button>
+
+            </div>
+
+
+
+            <div class="sidebar-header">
+
+                <span>📍 Path History</span>
+
+                <span style="font-size: 0.8em; opacity: 0.6">Locked Mode Only</span>
+
+            </div>
+
+            <div class="sidebar-content" id="pathLog">
+
+                <div style="
+
+              padding: 20px;
+
+              text-align: center;
+
+              opacity: 0.5;
+
+              font-size: 0.9em;
+
+            ">
+
+                    Log empty...
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <footer class="footer">
+
+        Powered by
+
+        <a href="https://www.tensorflow.org/js" target="_blank">TensorFlow.js</a>
+
+        & WebRTC
+
+    </footer>
+
+
+
+    <style>
+        .mode-btn {
+
+            flex: 1;
+
+            padding: 10px;
+
+            border-radius: 8px;
+
+            border: 1px solid rgba(255, 255, 255, 0.2);
+
+            background: rgba(255, 255, 255, 0.05);
+
+            color: white;
+
+            cursor: pointer;
+
+            transition: all 0.2s;
+
+        }
+
+
+
+        .mode-btn.active {
+
+            background: #667eea;
+
+            border-color: #667eea;
+
+            font-weight: bold;
+
+        }
+
+
+
+        .mode-btn.recording {
+
+            background: #ff4757;
+
+            border-color: #ff4757;
+
+            animation: pulse-red 2s infinite;
+
+        }
+
+
+
+        .mode-btn.looping {
+
+            background: #2ed573;
+
+            border-color: #2ed573;
+
+        }
+
+
+
+        @keyframes pulse-red {
+
+            0% {
+
+                opacity: 1;
+
+            }
+
+
+
+            50% {
+
+                opacity: 0.7;
+
+            }
+
+
+
+            100% {
+
+                opacity: 1;
+
+            }
+
+        }
+
+
+
+        .dpad-btn {
+
+            width: 50px;
+
+            height: 50px;
+
+            border-radius: 12px;
+
+            border: none;
+
+            background: rgba(255, 255, 255, 0.1);
+
+            color: white;
+
+            font-size: 1.2rem;
+
+            cursor: pointer;
+
+            transition: background 0.1s;
+
+        }
+
+
+
+        .dpad-btn:active {
+
+            background: #667eea;
+
+            transform: scale(0.95);
+
+        }
+    </style>
+
+
+
+    <script>
+
+        const video = document.getElementById("video");
+
+        const canvas = document.getElementById("canvas");
+
+        const whiteboard = document.getElementById("whiteboard");
+
+        const ctx = canvas.getContext("2d");
+
+        const wbCtx = whiteboard.getContext("2d");
+
+
+
+        const status = document.getElementById("status");
+
+        const startBtn = document.getElementById("startBtn");
+
+        const liveIndicator = document.getElementById("liveIndicator");
+
+        const trackingInfo = document.getElementById("trackingInfo");
+
+        const trackingValue = document.getElementById("trackingValue");
+
+        const videoWrapper = document.querySelector(".video-wrapper");
+
+        const pathLog = document.getElementById("pathLog");
+
+        const dpadContainer = document.getElementById("dpadContainer");
+
+        const btnAuto = document.getElementById("btnAuto");
+
+        const btnManual = document.getElementById("btnManual");
+
+        const btnRecord = document.getElementById("btnRecord");
+
+        const btnLoop = document.getElementById("btnLoop");
+
+        const btnSetAlert = document.getElementById("btnSetAlert");
+
+        const inputTrigger = document.getElementById("alertTrigger");
+
+        // Old inputEmail is now generic inputDest managed inside functions but for safety:
+
+        // const inputEmail = document.getElementById('alertEmail'); // Removed in favor of dyn fetch
+
+
+
+        let pc = new RTCPeerConnection();
+
+        let dc = pc.createDataChannel("coordinates");
+
+
+
+        // Tracking State
+
+        let controlMode = "auto"; // 'auto' | 'manual'
+
+        let trackingMode = "auto"; // 'auto' | 'locked' (Sub-mode for Auto)
+
+        let lockedTarget = null; // { label, x, y } (Used in Auto)
+
+        let manualCoords = { x: 0, y: 0 }; // Used in Manual
+
+
+
+        let lastDetections = [];
+
+        let pathHistory = []; // Array of {x, y, time}
+
+
+
+        // Recorder State
+
+        let isRecording = false;
+
+        let isLooping = false;
+
+        let recordedPath = [];
+
+        let replayIndex = 0;
+
+
+
+        // Alert State
+
+        let alertActive = false;
+
+        let alertConfig = { trigger: "", dest: "", type: "email", apikey: "" };
+
+        let lastAlertTime = 0;
+
+        const ALERT_COOLDOWN = 60000; // 1 minute
+
+        // Monitor State
+        let isMonitoring = false;
+        let monitorThreshold = 70;
+
+        // UI References
+        const btnTypeEmail = document.getElementById("btnTypeEmail");
+        const inputDest = document.getElementById("alertDest");
+        const inputApiKey = document.getElementById("alertApiKey");
+
+        // Monitor UI
+        const btnMonitor = document.getElementById("btnMonitor");
+        const thresholdLabel = document.getElementById("thresholdLabel");
+
+        // Zone State
+        let zones = []; // Array of {x, y, w, h}
+        let isDrawingZone = false;
+        let zoneStartPoint = null; // {x, y} for first click
+        const btnDrawZone = document.getElementById("btnDrawZone");
+
+        // btnSetAlert is already defined above
+
+        // inputTrigger is already defined above
+
+
+
+        window.setAlertType = function (type) {
+            // Only Email supported now
+            alertConfig.type = "email";
+            inputDest.placeholder = "your@email.com";
+        };
+
+
+
+        // --- ALERT LOGIC ---
+
+        window.toggleAlert = function () {
+
+            if (alertActive) {
+
+                alertActive = false;
+
+                btnSetAlert.innerText = "🔔 Set Alert";
+
+                btnSetAlert.classList.remove("active");
+
+                status.innerText = "🔕 Alert Disabled";
+
+                return;
+
+            }
+
+
+
+            const trigger = inputTrigger.value.trim().toLowerCase();
+
+            const dest = inputDest.value.trim();
+
+            const apikey = inputApiKey.value.trim();
+
+            const type = alertConfig.type;
+
+
+
+            if (!trigger || !dest) {
+                alert("Please enter trigger object and email!");
+                return;
+            }
+
+            alertConfig = { ...alertConfig, trigger, dest }; // Update all
+
+            alertActive = true;
+
+            btnSetAlert.innerText = "🔕 Stop Alert";
+
+            btnSetAlert.classList.add("active");
+
+            btnSetAlert.classList.add("active");
+
+            status.innerText = `🔔 Email Alert set for: "${trigger}"`;
+
+        };
+
+
+
+        async function sendAlert(label) {
+
+            const now = Date.now();
+
+            if (now - lastAlertTime < ALERT_COOLDOWN) return; // Cooldown check
+
+
+
+            lastAlertTime = now;
+
+            console.log("TRIGGERING ALERT FOR:", label);
+
+            status.innerText = `📤 Sending ${alertConfig.type} alert...`;
+
+
+
+            try {
+
+                const response = await fetch("/send_alert", {
+
+                    method: "POST",
+
+                    headers: { "Content-Type": "application/json" },
+
+                    body: JSON.stringify({
+
+                        object: label,
+
+                        type: alertConfig.type,
+
+                        email: alertConfig.dest, // Sending as generic 'email' field or split it
+
+                        apikey: alertConfig.apikey,
+
+                        time: new Date().toLocaleTimeString(),
+
+                    }),
+
+                });
+
+                const res = await response.json();
+
+
+
+                if (res.status === "ok") {
+
+                    status.innerText = `✅ ${alertConfig.type} Sent!`;
+
+                } else {
+
+                    status.innerText = `❌ Error: ${res.message}`;
+
+                }
+
+            } catch (e) {
+
+                console.error(e);
+
+                status.innerText = "❌ Conn Error";
+
+            }
+
+        }
+
+
+
+        // --- MODE SWITCHING ---
+
+        window.switchMode = function (mode) {
+
+            // Stop looping if we switch modes manually
+
+            if (isLooping) toggleLoop();
+
+
+
+            controlMode = mode;
+
+            if (mode === "auto") {
+
+                btnAuto.classList.add("active");
+
+                btnManual.classList.remove("active");
+
+                dpadContainer.style.display = "none";
+
+                status.innerText = "🤖 Switched to Auto Mode";
+
+            } else {
+
+                btnManual.classList.add("active");
+
+                btnAuto.classList.remove("active");
+
+                dpadContainer.style.display = "flex";
+
+                status.innerText = "🕹️ Switched to Manual Mode";
+
+
+
+                // Initialize manual coords
+
+                if (lockedTarget) {
+
+                    manualCoords = { x: lockedTarget.x, y: lockedTarget.y };
+
+                } else {
+
+                    // Start from center if nothing locked
+
+                    manualCoords = {
+
+                        x: video.videoWidth / 2,
+
+                        y: video.videoHeight / 2,
+
+                    };
+
+                }
+
+            }
+
+            pathHistory = [];
+
+            wbCtx.clearRect(0, 0, whiteboard.width, whiteboard.height);
+
+            updateSidebar(true);
+
+        };
+
+
+
+        // --- RECORDER LOGIC ---
+
+        window.toggleRecord = function () {
+
+            if (isLooping) return; // Can't record while looping
+
+
+
+            isRecording = !isRecording;
+
+            if (isRecording) {
+
+                recordedPath = []; // Clear old path
+
+                btnRecord.classList.add("recording");
+
+                btnRecord.innerText = "⏹ Stop Rec";
+
+                status.innerText = "🔴 Recording Path...";
+
+            } else {
+
+                btnRecord.classList.remove("recording");
+
+                btnRecord.innerText = "🔴 Record";
+
+                status.innerText = `✅ Path Recorded (${recordedPath.length} points)`;
+
+                console.log("Path Recorded:", recordedPath);
+
+            }
+
+        };
+
+
+
+        window.toggleLoop = function () {
+
+            if (isRecording) return; // Can't loop while recording
+
+            if (recordedPath.length === 0) {
+
+                alert("No path recorded! Record something first.");
+
+                return;
+
+            }
+
+
+
+            isLooping = !isLooping;
+
+            if (isLooping) {
+
+                replayIndex = 0;
+
+                btnLoop.classList.add("looping");
+
+                btnLoop.innerText = "⏹ Stop Loop";
+
+                status.innerText = "🔁 Looping Path...";
+
+            } else {
+
+                btnLoop.classList.remove("looping");
+
+                btnLoop.innerText = "🔁 Loop";
+
+                status.innerText = "⏹ Loop Stopped.";
+
+            }
+
+        };
+
+
+
+        window.savePath = async function () {
+
+            if (recordedPath.length === 0) {
+
+                alert("No path to save!");
+
+                return;
+
+            }
+
+
+
+            const name = prompt("Enter a name for this path:", "My Custom Path");
+
+            if (!name) return;
+
+
+
+            status.innerText = "💾 Saving Path...";
+
+            try {
+
+                const response = await fetch("/save_path", {
+
+                    method: "POST",
+
+                    headers: { "Content-Type": "application/json" },
+
+                    body: JSON.stringify({ name: name, path: recordedPath }),
+
+                });
+
+                const result = await response.json();
+
+                if (result.status === "ok") {
+
+                    status.innerText = `✅ Saved! (Total: ${result.count})`;
+
+                    alert(
+
+                        `Path saved successfully! Database now has ${result.count} entries.`
+
+                    );
+
+                } else {
+
+                    status.innerText = "❌ Save Failed";
+
+                    alert("Error saving: " + result.message);
+
+                }
+
+            } catch (e) {
+
+                console.error(e);
+
+                status.innerText = "❌ Connection Error";
+
+                alert("Failed to connect to backend save endpoint.");
+
+            }
+
+        };
+
+
+
+        window.loadPath = async function () {
+
+            status.innerText = "📂 Fetching paths...";
+
+            try {
+
+                const response = await fetch("/get_paths");
+
+                const paths = await response.json();
+
+
+
+                if (!paths || paths.length === 0) {
+
+                    alert("No saved paths found on server.");
+
+                    status.innerText = "❌ No paths found.";
+
+                    return;
+
+                }
+
+
+
+                // Simple Prompt-based selection
+
+                let listStr = "Enter the ID of the path to load:\n";
+
+                paths.forEach((p, index) => {
+
+                    listStr += `[${index + 1}] ${p.name} (${p.points.length} pts)\n`;
+
+                });
+
+
+
+                const choice = prompt(listStr);
+
+                if (!choice) return;
+
+
+
+                const index = parseInt(choice) - 1;
+
+                if (index >= 0 && index < paths.length) {
+
+                    const selected = paths[index];
+
+                    recordedPath = selected.points;
+
+                    status.innerText = `✅ Loaded: ${selected.name}`;
+
+
+
+                    // Auto-start loop
+
+                    if (confirm(`Loaded "${selected.name}". Start looping now?`)) {
+
+                        if (isRecording) toggleRecord(); // Stop recording if active
+
+                        // Force stop loop if already looping to reset
+
+                        if (isLooping) toggleLoop();
+
+                        toggleLoop(); // Start loop
+
+                    }
+
+                } else {
+
+                    alert("Invalid selection!");
+
+                }
+
+            } catch (e) {
+
+                console.error(e);
+
+                status.innerText = "❌ Load Error";
+
+                alert("Failed to fetch paths.");
+
+            }
+
+        };
+
+        // --- MONITOR LOGIC ---
+        window.toggleMonitor = function () {
+            if (recordedPath.length === 0) {
+                alert("No reference path! Please Record Loop or Load a path first.");
+                return;
+            }
+
+            isMonitoring = !isMonitoring;
+            if (isMonitoring) {
+                btnMonitor.classList.add("recording"); // Reuse red pulse or similar, or add new style
+                btnMonitor.style.background = "#ff9f43"; // Orange for security
+                btnMonitor.style.borderColor = "#ff9f43";
+                btnMonitor.innerText = "🛑 Stop Monitor";
+                status.innerText = "🛡️ Security Monitoring Active";
+            } else {
+                btnMonitor.classList.remove("recording");
+                btnMonitor.style.background = ""; // Reset
+                btnMonitor.style.borderColor = "";
+                btnMonitor.innerText = "🛡️ Start Monitoring";
+                status.innerText = "🛡️ Monitoring Stopped";
+            }
+        };
+
+        window.updateThresholdLabel = function (val) {
+            monitorThreshold = parseInt(val);
+            thresholdLabel.innerText = val + "px";
+        };
+
+        // --- ZONE LOGIC ---
+        window.toggleZoneMode = function () {
+            isDrawingZone = !isDrawingZone;
+            zoneStartPoint = null; // Reset click state
+
+            if (isDrawingZone) {
+                btnDrawZone.classList.add("recording"); // Reuse red pulse
+                btnDrawZone.innerText = "Target Point 1...";
+                status.innerText = "🛑 Click Top-Left corner on video";
+                // Disable other modes potentially?
+            } else {
+                btnDrawZone.classList.remove("recording");
+                btnDrawZone.innerText = "✏️ Draw Zone";
+                status.innerText = "🛑 Draw cancelled.";
+            }
+        };
+
+        window.clearZones = function () {
+            if (confirm("Delete all No-Go Zones?")) {
+                zones = [];
+                status.innerText = "🗑️ Zones Cleared";
+            }
+        };
+
+
+
+        // --- MANUAL CONTROL ---
+
+        window.adjustManual = function (dx, dy) {
+
+            if (controlMode !== "manual") return;
+
+            // No manual adjustment if looping
+
+            if (isLooping) return;
+
+
+
+            manualCoords.x += dx;
+
+            manualCoords.y += dy;
+
+
+
+            // Bounds check
+
+            manualCoords.x = Math.max(
+
+                0,
+
+                Math.min(video.videoWidth, manualCoords.x)
+
+            );
+
+            manualCoords.y = Math.max(
+
+                0,
+
+                Math.min(video.videoHeight, manualCoords.y)
+
+            );
+
+
+
+            // Trigger visual update immediately
+
+            processFrame([], true);
+
+        };
+
+
+
+        // Keyboard support
+
+        document.addEventListener("keydown", (e) => {
+
+            if (controlMode !== "manual") return;
+
+            const step = 20;
+
+            switch (e.key) {
+
+                case "ArrowUp":
+
+                    adjustManual(0, -step);
+
+                    break;
+
+                case "ArrowDown":
+
+                    adjustManual(0, step);
+
+                    break;
+
+                case "ArrowLeft":
+
+                    adjustManual(step, 0);
+
+                    break;
+
+                case "ArrowRight":
+
+                    adjustManual(-step, 0);
+
+                    break;
+
+            }
+
+        });
+
+
+
+        // Helper: Map video coordinates to whiteboard coordinates
+
+        function mapToWhiteboard(x, y) {
+
+            // Video resolution
+
+            const vW = video.videoWidth || 640;
+
+            const vH = video.videoHeight || 480;
+
+            // Whiteboard resolution
+
+            const wbW = whiteboard.width;
+
+            const wbH = whiteboard.height;
+
+
+
+            // Normalize (0.0 - 1.0)
+
+            const normX = x / vW;
+
+            const normY = y / vH;
+
+
+
+            return {
+
+                x: normX * wbW,
+
+                y: normY * wbH,
+
+            };
+
+        }
+
+
+
+        // Handle clicks for object selection
+
+        videoWrapper.addEventListener("click", (e) => {
+
+            if (controlMode === "manual" || isLooping) return; // Ignore clicks in manual or loop mode
+
+
+
+            if (!lastDetections.length) return;
+
+
+
+            const rect = video.getBoundingClientRect();
+
+            const visualClickX = e.clientX - rect.left;
+
+            const clickY = e.clientY - rect.top;
+
+            // INVERT THE X COORDINATE HERE:
+            const mirroredClickX = rect.width - visualClickX;
+
+            const scaleX = video.videoWidth / rect.width;
+            const scaleY = video.videoHeight / rect.height;
+            const trueClickX = mirroredClickX * scaleX; // Use the inverted X
+            const trueClickY = clickY * scaleY;
+
+            // --- ZONE DRAWING LOGIC ---
+            if (isDrawingZone) {
+                if (!zoneStartPoint) {
+                    // First Click
+                    zoneStartPoint = { x: trueClickX, y: trueClickY };
+                    status.innerText = "🛑 Point 1 set. Click bottom-right corner.";
+                } else {
+                    // Second Click - Finalize
+                    const x = Math.min(zoneStartPoint.x, trueClickX);
+                    const y = Math.min(zoneStartPoint.y, trueClickY);
+                    const w = Math.abs(trueClickX - zoneStartPoint.x);
+                    const h = Math.abs(trueClickY - zoneStartPoint.y);
+
+                    if (w > 10 && h > 10) {
+                        zones.push({ x, y, w, h });
+                        status.innerText = `🛑 Zone Created (${Math.round(w)}x${Math.round(h)})`;
+                        console.log("Zone Added:", { x, y, w, h });
+                    } else {
+                        status.innerText = "⚠️ Zone too small, ignored.";
+                    }
+
+                    // Reset
+                    zoneStartPoint = null;
+                    toggleZoneMode(); // Exit draw mode automatically
+                }
+                return; // Stop here, don't select objects
+            }
+
+
+            const clickedObject = lastDetections.find((p) => {
+
+                const [x, y, w, h] = p.bbox;
+
+                return (
+
+                    trueClickX >= x &&
+
+                    trueClickX <= x + w &&
+
+                    trueClickY >= y &&
+
+                    trueClickY <= y + h
+
+                );
+
+            });
+
+
+
+            if (clickedObject) {
+
+                trackingMode = "locked";
+
+                const centerX = clickedObject.bbox[0] + clickedObject.bbox[2] / 2;
+
+                const centerY = clickedObject.bbox[1] + clickedObject.bbox[3] / 2;
+
+
+
+                lockedTarget = {
+
+                    label: clickedObject.class,
+
+                    x: centerX,
+
+                    y: centerY,
+
+                };
+
+
+
+                pathHistory = [];
+
+                wbCtx.clearRect(0, 0, whiteboard.width, whiteboard.height);
+
+                updateSidebar(true);
+
+                console.log("Locked onto:", clickedObject.class);
+
+            } else {
+
+                trackingMode = "auto";
+
+                lockedTarget = null;
+
+                pathHistory = [];
+
+                wbCtx.clearRect(0, 0, whiteboard.width, whiteboard.height);
+
+                updateSidebar(true);
+
+                console.log("Reset to Auto Mode");
+
+            }
+
+        });
+
+
+
+        function updateSidebar(clear = false) {
+
+            if (clear) {
+
+                pathLog.innerHTML = `<div style="padding:20px; text-align:center; opacity:0.5; font-size:0.9em;">Path cleared.</div>`;
+
+                return;
+
+            }
+
+            const lastPoint = pathHistory[pathHistory.length - 1];
+
+            if (!lastPoint) return;
+
+
+
+            const div = document.createElement("div");
+
+            div.className = "log-item";
+
+            div.innerHTML = `
+
+                <span class="log-time">${lastPoint.time}</span>
+
+                <span>x:${Math.round(lastPoint.x)}, y:${Math.round(
+
+                lastPoint.y
+
+            )}</span>
+
+            `;
+
+            pathLog.insertBefore(div, pathLog.firstChild);
+
+            if (pathLog.children.length > 50)
+
+                pathLog.removeChild(pathLog.lastChild);
+
+        }
+
+
+
+        // Main Processing Logic
+
+        function processFrame(predictions, forceManual = false) {
+
+            // Clear Overlay
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+
+
+            let activePoint = null;
+
+            let activeLabel = "";
+
+
+
+            // --- 1. DETERMINE SOURCE OF TRUTH ---
+
+            if (isLooping && recordedPath.length > 0) {
+
+                // REPLAY MODE
+
+                activePoint = recordedPath[replayIndex];
+
+                activeLabel = "Loop Replay";
+
+
+
+                // Advance Index
+
+                replayIndex++;
+
+                if (replayIndex >= recordedPath.length) {
+
+                    replayIndex = 0; // Loop back
+
+                }
+
+            } else if (controlMode === "auto") {
+
+                // AUTO MODE
+
+                let targetObject = null;
+
+                if (predictions.length > 0) {
+
+                    if (trackingMode === "auto") {
+
+                        targetObject = predictions[0];
+
+                    } else if (trackingMode === "locked" && lockedTarget) {
+
+                        const candidates = predictions.filter(
+
+                            (p) => p.class === lockedTarget.label
+
+                        );
+
+                        if (candidates.length > 0) {
+
+                            targetObject = candidates.reduce((closest, curr) => {
+
+                                const cx = curr.bbox[0] + curr.bbox[2] / 2;
+
+                                const cy = curr.bbox[1] + curr.bbox[3] / 2;
+
+                                const distCalls = Math.hypot(
+
+                                    cx - lockedTarget.x,
+
+                                    cy - lockedTarget.y
+
+                                );
+
+                                const closestCx = closest.bbox[0] + closest.bbox[2] / 2;
+
+                                const closestCy = closest.bbox[1] + closest.bbox[3] / 2;
+
+                                const distClosest = Math.hypot(
+
+                                    closestCx - lockedTarget.x,
+
+                                    closestCy - lockedTarget.y
+
+                                );
+
+                                return distCalls < distClosest ? curr : closest;
+
+                            });
+
+                        }
+
+                    }
+
+
+
+                    if (targetObject) {
+
+                        const [x, y, w, h] = targetObject.bbox;
+
+                        let centerX = x + w / 2;
+
+                        let centerY = y + h / 2;
+
+
+
+                        if (trackingMode === "locked") {
+
+                            // Deadband
+
+                            const limitX = w * 0.01;
+
+                            const limitY = h * 0.01;
+
+                            if (Math.abs(centerX - lockedTarget.x) > limitX)
+
+                                lockedTarget.x = centerX;
+
+                            if (Math.abs(centerY - lockedTarget.y) > limitY)
+
+                                lockedTarget.y = centerY;
+
+
+
+                            activePoint = { x: lockedTarget.x, y: lockedTarget.y };
+
+                            activeLabel = targetObject.class;
+
+                        } else {
+
+                            // Auto
+
+                            activePoint = { x: centerX, y: centerY };
+
+                            activeLabel = targetObject.class;
+
+                        }
+
+                    }
+
+                }
+
+            } else {
+
+                // MANUAL MODE
+
+                activePoint = manualCoords;
+
+                activeLabel = "Manual User";
+
+            }
+
+
+
+            // --- 2. COMMON ACTION (Record, Draw, Send) ---
+
+            if (activePoint) {
+
+                const timestamp = new Date().toLocaleTimeString("en-US", {
+
+                    hour12: false,
+
+                    hour: "numeric",
+
+                    minute: "numeric",
+
+                    second: "numeric",
+
+                });
+
+                const lastP = pathHistory[pathHistory.length - 1];
+
+
+
+                // RECORDING: If Recording is ON, save this point
+
+                if (isRecording) {
+
+                    recordedPath.push({ x: activePoint.x, y: activePoint.y });
+
+                }
+
+
+
+                // Log Logic: Update Sidebar & Whiteboard
+
+                if (
+
+                    !lastP ||
+
+                    Math.hypot(activePoint.x - lastP.x, activePoint.y - lastP.y) > 2 ||
+
+                    forceManual ||
+
+                    isLooping
+
+                ) {
+
+                    pathHistory.push({
+
+                        x: activePoint.x,
+
+                        y: activePoint.y,
+
+                        time: timestamp,
+
+                    });
+
+                    updateSidebar();
+
+
+
+                    // Draw on Whiteboard
+
+                    const wbPoint = mapToWhiteboard(activePoint.x, activePoint.y);
+
+                    wbCtx.lineWidth = 5;
+
+                    wbCtx.lineCap = "round";
+
+
+
+                    // Color coding
+
+                    if (isLooping) wbCtx.strokeStyle = "#2ed573"; // Green for Loop
+
+                    else if (controlMode === "manual")
+
+                        wbCtx.strokeStyle = "#ff4757"; // Red for Manual
+
+                    else wbCtx.strokeStyle = "#333"; // Black for Auto
+
+
+
+                    if (pathHistory.length > 1) {
+
+                        const prevP = pathHistory[pathHistory.length - 2];
+
+                        const prevWbPoint = mapToWhiteboard(prevP.x, prevP.y);
+
+                        wbCtx.beginPath();
+
+                        wbCtx.moveTo(prevWbPoint.x, prevWbPoint.y);
+
+                        wbCtx.lineTo(wbPoint.x, wbPoint.y);
+
+                        wbCtx.stroke();
+
+                    } else {
+
+                        wbCtx.beginPath();
+
+                        wbCtx.arc(wbPoint.x, wbPoint.y, 2, 0, Math.PI * 2);
+
+                        wbCtx.fill();
+
+                    }
+
+                }
+
+
+
+                // Send Data
+
+                if (dc.readyState === "open") {
+
+                    dc.send(
+
+                        JSON.stringify({
+
+                            label: activeLabel,
+
+                            x: Math.round(activePoint.x),
+
+                            y: Math.round(activePoint.y),
+
+                            w: video.videoWidth,
+
+                            h: video.videoHeight,
+
+                        })
+
+                    );
+
+                }
+
+
+
+                // Update UI Status
+
+                if (isLooping) {
+
+                    status.innerText = `🔁 Looping: Frame ${replayIndex}/${recordedPath.length}`;
+
+                } else if (controlMode === "auto") {
+
+                    status.innerText =
+
+                        trackingMode === "auto"
+
+                            ? `🤖 Auto: ${activeLabel}`
+
+                            : `🔒 Locked: ${activeLabel}`;
+
+                } else {
+
+                    status.innerText = `🕹️ Manual: (${Math.round(
+
+                        activePoint.x
+
+                    )}, ${Math.round(activePoint.y)})`;
+
+                }
+
+
+
+                if (isRecording) {
+
+                    status.innerText += " [REC ●]";
+
+                }
+
+
+
+                trackingInfo.classList.add("active");
+
+                trackingValue.innerText = activeLabel;
+
+
+
+                // Draw Pointer on Main Canvas
+
+                ctx.beginPath();
+
+                ctx.arc(activePoint.x, activePoint.y, 10, 0, Math.PI * 2);
+
+                ctx.fillStyle = isLooping
+
+                    ? "#2ed573"
+
+                    : controlMode === "manual"
+
+                        ? "#ff4757"
+                        : "cyan";
+                ctx.fill();
+
+                // --- 2.1 DEVIATION MONITORING ---
+                if (isMonitoring && recordedPath.length > 0) {
+                    // A. Find closest point on path
+                    let minDist = Infinity;
+                    let closestP = null;
+
+                    for (let p of recordedPath) {
+                        const dist = Math.hypot(p.x - activePoint.x, p.y - activePoint.y);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            closestP = p;
+                        }
+                    }
+
+                    // B. Draw Safety Corridor (Visual Guide)
+                    ctx.save();
+                    ctx.beginPath();
+                    // Draw entire path as a faint corridor
+                    if (recordedPath.length > 0) {
+                        ctx.moveTo(recordedPath[0].x, recordedPath[0].y);
+                        for (let i = 1; i < recordedPath.length; i++) {
+                            ctx.lineTo(recordedPath[i].x, recordedPath[i].y);
+                        }
+                    }
+                    ctx.lineCap = "round";
+                    ctx.lineJoin = "round";
+                    ctx.lineWidth = monitorThreshold * 2; // Width is diameter (2*radius)
+                    ctx.strokeStyle = "rgba(46, 213, 115, 0.1)"; // Very faint green fill
+                    ctx.stroke();
+
+                    // Optional: Center line
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = "rgba(46, 213, 115, 0.5)";
+                    ctx.stroke();
+                    ctx.restore();
+
+
+                    // C. Deviation Check
+                    if (minDist > monitorThreshold) {
+                        // --- ALERT DEVIATION ---
+                        ctx.save();
+
+                        // 1. Draw Red Line to Closest Point (The "Get Back" vector)
+                        ctx.beginPath();
+                        ctx.moveTo(activePoint.x, activePoint.y);
+                        ctx.lineTo(closestP.x, closestP.y);
+                        ctx.lineWidth = 4;
+                        ctx.strokeStyle = "#ff4757"; // Red
+                        ctx.setLineDash([10, 5]); // Dashed warning line
+                        ctx.stroke();
+                        ctx.setLineDash([]); // Reset
+
+                        // 2. Draw Arrowhead at the destination (path)
+                        const angle = Math.atan2(closestP.y - activePoint.y, closestP.x - activePoint.x);
+                        ctx.beginPath();
+                        ctx.translate(closestP.x, closestP.y);
+                        ctx.rotate(angle);
+                        ctx.moveTo(0, 0);
+                        ctx.lineTo(-10, -5);
+                        ctx.lineTo(-10, 5);
+                        ctx.fillStyle = "#ff4757";
+                        ctx.fill();
+                        ctx.restore();
+
+                        // 3. Text Alert on Screen
+                        ctx.font = "bold 20px Inter, sans-serif";
+                        ctx.fillStyle = "#ff4757";
+                        ctx.fillText("⚠️ OFF PATH", activePoint.x + 20, activePoint.y);
+                        ctx.font = "14px Inter, sans-serif";
+                        ctx.fillStyle = "white";
+                        ctx.fillText(`Dist: ${Math.round(minDist)}px`, activePoint.x + 20, activePoint.y + 20);
+
+                        // 4. Update Status Text
+                        status.innerText = `🚨 DEVIATION! Return to Path (${Math.round(minDist)}px)`;
+
+                        // 5. Trigger System Alert (if configured)
+                        if (alertActive) {
+                            sendAlert(`Deviation (${Math.round(minDist)}px)`);
+                        }
+
+                    } else {
+                        // ON PATH - All good
+                        // Optional: Highlight the "closest point" on the path to show synchronization
+                        ctx.beginPath();
+                        ctx.arc(closestP.x, closestP.y, 5, 0, Math.PI * 2);
+                        ctx.fillStyle = "#2ed573";
+                        ctx.fill();
+                    }
+                }
+
+            } else {
+
+                if (controlMode === "auto" && !isLooping) {
+
+                    status.innerText =
+
+                        trackingMode === "locked" && lockedTarget
+
+                            ? `⚠️ Lost Target...`
+
+                            : `🔍 Searching...`;
+
+                }
+
+                trackingInfo.classList.remove("active");
+
+            }
+
+
+
+            // Draw Auto Bounding Boxes (Only in Auto Mode, not while looping ideally)
+            if (controlMode === "auto" && !isLooping) {
+
+                // --- DRAW ZONES ---
+                zones.forEach(z => {
+                    // Check collision
+                    const inZone = activePoint &&
+                        activePoint.x >= z.x && activePoint.x <= z.x + z.w &&
+                        activePoint.y >= z.y && activePoint.y <= z.y + z.h;
+
+                    ctx.save();
+                    // Flip back to normal for rect drawing if needed, BUT our canvas is NOT flipped context-wise, 
+                    // only the video/css might be. Wait, canvas ID 'canvas' is pointer-events none and overlays 
+                    // video wrapper which is scaleX(-1).
+                    // However, ctx coords are "true" coords. 
+                    // To match the flipped video, we must draw "flipped" relative to the view if we want it to align.
+                    // Actually, we are matching object coords which are already true image coords.
+                    // The CSS flips the whole canvas. So drawing at x=10 (left) appears on the right.
+                    // This is consistent. We just draw at valid x,y.
+
+                    ctx.lineWidth = 2;
+                    if (inZone) {
+                        ctx.fillStyle = "rgba(255, 0, 0, 0.4)"; // Triggered
+                        ctx.strokeStyle = "red";
+
+                        // ALERT!
+                        if (alertActive) sendAlert("Zone Breach!");
+
+                        ctx.font = "bold 20px Inter, sans-serif";
+                        ctx.fillStyle = "red";
+                        // Draw Warning text (must unflip)
+                        ctx.save();
+                        ctx.scale(-1, 1);
+                        ctx.fillText("⛔ BREACH", -(z.x + z.w / 2), z.y + z.h / 2);
+                        ctx.restore();
+
+                    } else {
+                        ctx.fillStyle = "rgba(255, 71, 87, 0.15)"; // Idle
+                        ctx.strokeStyle = "rgba(255, 71, 87, 0.5)";
+                    }
+
+                    ctx.fillRect(z.x, z.y, z.w, z.h);
+                    ctx.strokeRect(z.x, z.y, z.w, z.h);
+
+                    // Label
+                    ctx.save();
+                    ctx.scale(-1, 1);
+                    ctx.fillStyle = "rgba(255,255,255,0.5)";
+                    ctx.font = "10px sans-serif";
+                    ctx.fillText("RESTRICTED", -(z.x + z.w - 5), z.y + 15);
+                    ctx.restore();
+
+                    ctx.restore();
+                });
+
+                // Draw pending zone box
+                if (isDrawingZone && zoneStartPoint && !isLooping) {
+                    // We don't have current mouse pos readily available in this loop without a listener, 
+                    // but that's fine, we just show the start point.
+                    ctx.beginPath();
+                    ctx.arc(zoneStartPoint.x, zoneStartPoint.y, 5, 0, Math.PI * 2);
+                    ctx.fillStyle = "yellow";
+                    ctx.fill();
+                }
+
+                predictions.forEach((p) => {
+
+                    const [x, y, w, h] = p.bbox; // Destructure for easier math
+
+                    const isTarget = p.class === activeLabel;
+
+
+
+                    // 1. SET BOX STYLE & ALERT CHECK
+
+                    if (alertActive && p.class.toLowerCase() === alertConfig.trigger) {
+
+                        ctx.strokeStyle = "#ff0000"; // Red box for alert trigger
+
+                        ctx.lineWidth = 4;
+
+                        sendAlert(p.class);
+
+                    } else {
+
+                        ctx.strokeStyle = isTarget
+
+                            ? "#00FF00"
+
+                            : "rgba(255, 255, 255, 0.5)";
+
+                        ctx.lineWidth = 2;
+
+                    }
+
+
+
+                    // 2. DRAW THE BOX
+
+                    // The box stays mirrored because the whole canvas is flipped via CSS
+
+                    ctx.strokeRect(x, y, w, h);
+
+
+
+                    // 3. PREPARE LABEL TEXT
+
+                    let labelText = p.class;
+
+                    if (isTarget) {
+
+                        labelText += trackingMode === "locked" ? " [LOCKED]" : " [AUTO]";
+
+                    }
+
+                    if (alertActive && p.class.toLowerCase() === alertConfig.trigger) {
+
+                        labelText += " [ALERT]";
+
+                    }
+
+
+
+                    // 4. DRAW UN-FLIPPED TEXT
+
+                    ctx.save(); // Save current canvas state
+
+                    ctx.scale(-1, 1); // Flip the context horizontally to fix backward text
+
+
+
+                    ctx.fillStyle = "#fff";
+
+                    ctx.font = "bold 16px sans-serif";
+
+
+
+                    /* 
+        
+               MATH EXPLANATION:
+        
+               Because we used scale(-1, 1), the X-axis is inverted. 
+        
+               To place text above the mirrored box:
+        
+               - The new X is: -(Original X + Box Width)
+        
+               - The Y stays the same
+        
+            */
+
+                    const textX = -(x + w);
+
+                    const textY = y > 10 ? y - 5 : 10;
+
+
+
+                    ctx.fillText(labelText, textX, textY);
+
+
+
+                    ctx.restore(); // Restore state so the next box isn't double-flipped
+
+                });
+
+            }
+
+        }
+
+
+
+        async function start() {
+
+            try {
+
+                startBtn.disabled = true;
+
+                startBtn.innerHTML = "⏳ Initializing...";
+
+
+
+                status.innerText = "Loading AI Model...";
+
+                const model = await cocoSsd.load();
+
+                status.innerText = "✅ Model Loaded. Starting Camera...";
+
+
+
+                const stream = await navigator.mediaDevices.getUserMedia({
+
+                    video: { facingMode: "environment" },
+
+                });
+
+                video.srcObject = stream;
+
+
+
+                video.onloadedmetadata = () => {
+
+                    canvas.width = video.videoWidth;
+
+                    canvas.height = video.videoHeight;
+
+                    whiteboard.width = video.videoWidth;
+
+                    whiteboard.height = video.videoHeight;
+
+                    // init manual coords
+
+                    manualCoords = {
+
+                        x: video.videoWidth / 2,
+
+                        y: video.videoHeight / 2,
+
+                    };
+
+                };
+
+
+
+                // Send video stream to Pi
+
+                stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+
+
+
+                status.innerText = "Connecting to Server...";
+
+
+
+                // WebRTC Handshake
+
+                const offer = await pc.createOffer();
+
+                await pc.setLocalDescription(offer);
+
+                const response = await fetch("/offer", {
+
+                    method: "POST",
+
+                    body: JSON.stringify({
+
+                        sdp: pc.localDescription.sdp,
+
+                        type: pc.localDescription.type,
+
+                    }),
+
+                    headers: { "Content-Type": "application/json" },
+
+                });
+
+                const answer = await response.json();
+
+                await pc.setRemoteDescription(new RTCSessionDescription(answer));
+
+
+
+                liveIndicator.classList.add("active");
+
+                startBtn.innerHTML = "🔴 Streaming Active";
+
+                status.innerText = "🎯 Auto-Tracking Active";
+
+
+
+                // DETECTION LOOP
+
+                setInterval(async () => {
+
+                    // In manual mode, we don't strictly NEED detection, but it's good to keep it running
+
+                    // if we want to switch back seamlessly or show boxes.
+
+                    // For performance, we could skip detection in manual mode, but let's keep it for now.
+
+                    let predictions = [];
+
+                    if (controlMode === "auto") {
+
+                        predictions = await model.detect(video);
+
+                        lastDetections = predictions;
+
+                    }
+
+
+
+                    processFrame(predictions);
+
+                }, 100);
+
+            } catch (error) {
+
+                console.error("Error:", error);
+
+                status.innerText = `❌ Error: ${error.message}`;
+
+                startBtn.disabled = false;
+
+                startBtn.innerHTML = "▶️ START AI & STREAM";
+
+            }
+
+        }
+
+
+
+        startBtn.onclick = start;
+
+    </script>
+
+</body>
+
+</html>
