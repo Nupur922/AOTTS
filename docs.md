@@ -1,4 +1,4 @@
-# 🎯 AOTS: Always-On Target Tracking System
+# 🎯 AOTTS: Always-On Target Tracking System
 
 > **A Next-Generation Active Surveillance Solution**  
 > *Turning passive monitoring into active engagement with Edge AI and Raspberry Pi 5.*
@@ -10,10 +10,10 @@
 **The Problem:**  
 Traditional surveillance systems are **passive**. They record crimes but do not intervene. Existing automated tracking solutions are often bulky, expensive, or suffer from high latency, making them ineffective for real-time response.
 
-**The Solution (AOTS):**  
-AOTS transforms surveillance from passive recording to **active engagement**. By combining **Edge AI (TensorFlow.js)** with high-speed hardware actuation (**Raspberry Pi 5**), we provide a low-latency, "always-on" system.
+**The Solution (AOTTS):**  
+AOTTS transforms surveillance from passive recording to **active engagement**. By combining **Edge AI (TensorFlow.js)** with high-speed hardware actuation (**Raspberry Pi 5**), we provide a low-latency, "always-on" system.
 
-> **Why this matters:** In high-security zones, industrial safety (geofencing), or automated wildlife monitoring, a system must not only "see" but "point" and "alert" instantly. AOTS fulfills this by using a laser-guided pan-tilt mechanism that follows targets with **sub-100ms latency**.
+> **Why this matters:** In high-security zones, industrial safety (geofencing), or automated wildlife monitoring, a system must not only "see" but "point" and "alert" instantly. AOTTS fulfills this by using a laser-guided pan-tilt mechanism that follows targets with **sub-100ms latency**.
 
 ---
 
